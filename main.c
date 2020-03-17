@@ -101,6 +101,20 @@ int main(int argc, char* argv[])
         if (SDL_GetTicks() - cycleStartTime < ticks_per_cycle) {
             SDL_Delay(ticks_per_cycle - (SDL_GetTicks() - cycleStartTime));
         }
+
+        #ifdef DEBUG
+        printDebug(&my_chip);
+        for(;;) {
+            if (SDL_PollEvent(&event)) {
+                if (event.type == SDL_QUIT) {
+                    goto breakMainLoop;
+                } else if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_RETURN) {
+                    break;
+                }
+            }
+        }
+        #endif // DEBUG
+
     } breakMainLoop:;
 
     SDL_DestroyRenderer(my_chip.renderer);

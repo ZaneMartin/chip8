@@ -38,4 +38,8 @@ void initialize(struct Chip8* chip);
 int loadProgram(struct Chip8* chip, const char* fileName);
 void cycle(struct Chip8* chip);
 
+#ifdef DEBUG
+void printDebug(struct Chip8* chip);
+#endif // DEBUG
+
 #endif // __CHIP8_H__

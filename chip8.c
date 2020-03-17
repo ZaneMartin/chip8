@@ -5,6 +5,21 @@
 
 #include "chip8.h"
 
+#ifdef DEBUG
+void printDebug(struct Chip8* chip)
+{
+    printf("%3X: %04X\n", chip->pc, chip->opcode);
+    printf("\t|REG\t|KEY\t|STACK\t|\n");
+    for (int i = 0; i < 16; ++i) {
+        printf("%X\t|%X\t|%x\t|%X\t|\n", i, chip->V[i], chip->key[i], chip->stack[i]);
+    }
+    printf("STACK POINTER: %X\n", chip->sp);
+    printf("I: %X\n", chip->I);
+    printf("DELAY TIMER: %d\n", chip->delay_timer);
+    printf("SOUND TIMER: %d\n", chip->sound_timer);
+}
+#endif // DEBUG
+
 void initialize(struct Chip8* chip)
 {
     unsigned char chip8_fontset[80] = {
