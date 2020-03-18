@@ -50,7 +50,7 @@ void initialize(struct Chip8* chip)
     chip->sound_timer = 0;
 
     memset(chip->gfx, 0, SCREEN_HEIGHT * SCREEN_WIDTH * sizeof(char));
-    memset(chip->stack, 0, 16 * sizeof(short));
+    memset(chip->stack, 0, STACK_SIZE * sizeof(short));
     memset(chip->V, 0, 16 * sizeof(char));
     memset(chip->memory, 0, MEMORY_SIZE * sizeof(char));
 
@@ -72,7 +72,7 @@ int loadProgram(struct Chip8* chip, const char* fileName)
     long size = ftell(program);
     rewind(program);
 
-    if (size > 4096 - 0x200) {
+    if (size > MEMORY_SIZE - 0x200) {
         printf("Error: %s is larger than a Chip8 program\n", fileName);
         return -1;
     }
@@ -113,22 +113,22 @@ int loadProgram(struct Chip8* chip, const char* fileName)
     return 0;
 }
 
-void op0(struct Chip8* chip);
-void op1(struct Chip8* chip);
-void op2(struct Chip8* chip);
-void op3(struct Chip8* chip);
-void op4(struct Chip8* chip);
-void op5(struct Chip8* chip);
-void op6(struct Chip8* chip);
-void op7(struct Chip8* chip);
-void op8(struct Chip8* chip);
-void op9(struct Chip8* chip);
-void opA(struct Chip8* chip);
-void opB(struct Chip8* chip);
-void opC(struct Chip8* chip);
-void opD(struct Chip8* chip);
-void opE(struct Chip8* chip);
-void opF(struct Chip8* chip);
+static void op0(struct Chip8* chip);
+static void op1(struct Chip8* chip);
+static void op2(struct Chip8* chip);
+static void op3(struct Chip8* chip);
+static void op4(struct Chip8* chip);
+static void op5(struct Chip8* chip);
+static void op6(struct Chip8* chip);
+static void op7(struct Chip8* chip);
+static void op8(struct Chip8* chip);
+static void op9(struct Chip8* chip);
+static void opA(struct Chip8* chip);
+static void opB(struct Chip8* chip);
+static void opC(struct Chip8* chip);
+static void opD(struct Chip8* chip);
+static void opE(struct Chip8* chip);
+static void opF(struct Chip8* chip);
 
 void cycle(struct Chip8* chip)
 {
@@ -168,12 +168,13 @@ void cycle(struct Chip8* chip)
 /// 0x0NNN | Call RCA 1802 program at address NNN  --- Not implemented. Not neccessary for most modern applications
 /// 0x00E0 | Clear the screen
 /// 0x00EE | jump to the last address in the stack
-void op0(struct Chip8* chip)
+static void op0(struct Chip8* chip)
 {
     if (chip->opcode == 0x00E0) {
         memset(chip->gfx, 0, SCREEN_HEIGHT * SCREEN_WIDTH * sizeof(char));
         chip->drawFlag = 1;
-    } else if (chip->opcode == 0x00EE) {
+    }
+    else if (chip->opcode == 0x00EE) {
         chip->pc = chip->stack[chip->sp];
         chip->stack[chip->sp] = 0;
         if (--chip->sp < 0) {
@@ -185,7 +186,7 @@ void op0(struct Chip8* chip)
 /// opcode | effect
 /// ----------------------------------------------
 /// 0x1NNN | jump to address NNN
-void op1(struct Chip8* chip)
+static void op1(struct Chip8* chip)
 {
     chip->pc = chip->opcode & 0x0FFF;
 }
@@ -193,9 +194,19 @@ void op1(struct Chip8* chip)
 /// opcode | effect
 /// ----------------------------------------------
 /// 0x2NNN | Call subroutine at address NNN
-void op2(struct Chip8* chip)
+static void op2(struct Chip8* chip)
 {
+    if (chip->stack[0] == 0) {
+        chip->stack[0] = chip->pc;
+        chip->pc = chip->opcode & 0x0FFF;
+        return;
+    }
+
     chip->sp++;
+    if (chip->sp == STACK_SIZE) {
+        printf("ERROR: Call stack exceeded\n");
+        chip->sp--;
+    }
     chip->stack[chip->sp] = chip->pc;
     chip->pc = chip->opcode & 0x0FFF;
 }
@@ -203,7 +214,7 @@ void op2(struct Chip8* chip)
 /// opcode | effect
 /// ----------------------------------------------
 /// 0x3XNN | Skip next instruction if VX == NN
-void op3(struct Chip8* chip)
+static void op3(struct Chip8* chip)
 {
     if (chip->V[(chip->opcode & 0x0F00) >> 8] == (chip->opcode & 0x00FF)) {
         chip->pc += 2;
@@ -213,7 +224,7 @@ void op3(struct Chip8* chip)
 /// opcode | effect
 /// ----------------------------------------------
 /// 0x4XNN | Skip next instruction if VX != NN
-void op4(struct Chip8* chip)
+static void op4(struct Chip8* chip)
 {
     if (chip->V[(chip->opcode & 0x0F00) >> 8] != (chip->opcode & 0x00FF)) {
         chip->pc += 2;
@@ -223,7 +234,7 @@ void op4(struct Chip8* chip)
 /// opcode | effect
 /// ----------------------------------------------
 /// 0x4XY0 | Skip next instruction if VX == VY
-void op5(struct Chip8* chip)
+static void op5(struct Chip8* chip)
 {
     if (chip->V[(chip->opcode & 0x0F00) >> 8] == chip->V[(chip->opcode & 0x00F0) >> 4]) {
         chip->pc += 2;
@@ -233,7 +244,7 @@ void op5(struct Chip8* chip)
 /// opcode | effect
 /// ----------------------------------------------
 /// 0x6XNN | Set VX = NN
-void op6(struct Chip8* chip)
+static void op6(struct Chip8* chip)
 {
     chip->V[(chip->opcode & 0x0F00) >> 8] = chip->opcode & 0x00FF;
 }
@@ -241,7 +252,7 @@ void op6(struct Chip8* chip)
 /// opcode | effect
 /// ----------------------------------------------
 /// 0x7XNN | Set VX += NN
-void op7(struct Chip8* chip)
+static void op7(struct Chip8* chip)
 {
     chip->V[(chip->opcode & 0x0F00) >> 8] += chip->opcode & 0x00FF;
 }
@@ -257,7 +268,7 @@ void op7(struct Chip8* chip)
 /// 0x8XY6 | Store the least significant bit of VX in VF, then VX >>= 1
 /// 0x8XY7 | Set VX = VY - VX, VF set to 0 if there is a borrow, 1 if not
 /// 0x8XYE | Store the most significant bif of VX in VF, then VX <<= 1;
-void op8(struct Chip8* chip)
+static void op8(struct Chip8* chip)
 {
     // decide which opcode to execute.
     unsigned char R1 = (chip->opcode & 0x0F00) >> 8;
@@ -304,7 +315,7 @@ void op8(struct Chip8* chip)
 /// opcode | effect
 /// ----------------------------------------------
 /// 0x9XY0 | Skip next intruction if VX != VY
-void op9(struct Chip8* chip)
+static void op9(struct Chip8* chip)
 {
     if (chip->V[(chip->opcode & 0x0F00) >> 8] != chip->V[(chip->opcode & 0x00F0) >> 4]) {
         chip->pc += 2;
@@ -314,7 +325,7 @@ void op9(struct Chip8* chip)
 /// opcode | effect
 /// ----------------------------------------------
 /// 0xANNN | Set I = NNN (NNN an address)
-void opA(struct Chip8* chip)
+static void opA(struct Chip8* chip)
 {
     chip->I = 0x0FFF & chip->opcode;
 }
@@ -322,7 +333,7 @@ void opA(struct Chip8* chip)
 /// opcode | effect
 /// ----------------------------------------------
 /// 0xBNNN | Jump to address NNN + V0
-void opB(struct Chip8* chip)
+static void opB(struct Chip8* chip)
 {
     chip->pc = (chip->opcode & 0x0FFF) + chip->V[0];
 }
@@ -330,7 +341,7 @@ void opB(struct Chip8* chip)
 /// opcode | effect
 /// ----------------------------------------------
 /// 0xCXNN | set VX to a random number ANDed with NN
-void opC(struct Chip8* chip)
+static void opC(struct Chip8* chip)
 {
     chip->V[(chip->opcode & 0x0F00) >> 8] = rand() & (chip->opcode & 0x00FF);
 }
@@ -341,7 +352,7 @@ void opC(struct Chip8* chip)
 ///        | Each row of 8 pixels is read as bit-coded starting from memory
 ///        | location I. I is unchanged. VF is set to 1 if any screen pixels
 ///        | are flipped to unset when the sprite is drawn, and 0 if not.
-void opD(struct Chip8* chip)
+static void opD(struct Chip8* chip)
 {
     int X = chip->V[(chip->opcode & 0x0F00) >> 8];
     int Y = chip->V[(chip->opcode & 0x00F0) >> 4];
@@ -350,8 +361,16 @@ void opD(struct Chip8* chip)
     chip->drawFlag = 1;
     for (int spriteY = 0 ; spriteY < height; ++spriteY) {
         for (int spriteX = 0 ; spriteX < 8; ++spriteX) {
+            // Dont allow horizontal wrap
+            if (X + spriteX >= SCREEN_WIDTH) {
+                goto nextY;
+            }
             // calculate the absolute position
             int pos = (Y + spriteY) * SCREEN_WIDTH + X + spriteX;
+            // prevent overflow.
+            if (pos >= SCREEN_HEIGHT * SCREEN_WIDTH) {
+                return;
+            }
             if (chip->gfx[pos] && ((chip->memory[chip->I + spriteY] >> (7 - spriteX)) &0x0001)) {
                 chip->V[0xF] = 1;
                 chip->gfx[pos] = 0;
@@ -359,6 +378,7 @@ void opD(struct Chip8* chip)
                 chip->gfx[pos] = 1;
             }
         }
+        nextY:;
     }
 }
 
@@ -366,7 +386,7 @@ void opD(struct Chip8* chip)
 /// ----------------------------------------------
 /// 0xEX9E | skip next instruction if the key in VX is pressed
 /// 0xEXA1 | skip next instruction if the key in VX is not pressed
-void opE(struct Chip8* chip)
+static void opE(struct Chip8* chip)
 {
     if ((chip->opcode & 0x00FF) == 0x9E) {
         if (chip->key[(chip->opcode & 0x0F00) >> 8]) {
@@ -390,7 +410,7 @@ void opE(struct Chip8* chip)
 /// 0xFX33 | Stores the binary-encoded decimal representation of VX in addr I
 /// 0xFX55 | Stores V0 to VX in memory, starting at addr I. I is left unmodified
 /// 0xFX65 | Loads values from memory into V0 - Vx, from addr I. I left unmodified
-void opF(struct Chip8* chip)
+static void opF(struct Chip8* chip)
 {
     short X = (chip->opcode & 0x0F00) >> 8;
     switch (chip->opcode & 0x00FF) {
