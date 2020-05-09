@@ -1,21 +1,27 @@
 srcFiles = $(wildcard *.c)
 objFiles = $(srcFiles:.c=.o)
+debugFiles = $(srcFiles:.c=DEBUG.o)
 
 CC = gcc
 
-COMPILER_FLAGS = -Wall -std=c11
+COMPILER_FLAGS = -Wall -Wpedantic -std=c11
 
 LINKER_FLAGS = -lSDL2 
 
 # target
-all : $(objFiles) 
-	$(CC) $^ $(COMPILER_FLAGS) $(LINKER_FLAGS)
+%.o : %.c
+	$(CC) $< $(COMPILER_FLAGS)
 
-.PHONY: debug
-debug: 
-	$(CC) $(srcFiles) $(COMPILER_FLAGS) $(LINKER_FLAGS) -DDEBUG
+all : $(objFiles) 
+	$(CC) $^ $(LINKER_FLAGS) 
+
+%DEBUG.o : %.c
+	$(CC) -g $< $(COMPILER_FLAGS) -DDEBUG
+
+debug : debugFiles
+	$(CC) $^ $(LINKER_FLAGS)
 
 .PHONY: clean
 clean:
-	rm -f $(objFiles) a.out
+	rm -f $(objFiles) $(debugFiles) a.out
 
