@@ -3,22 +3,35 @@
 
 #include "chip8.h"
 
+const int DEFAULT_CYCLES_PER_SECOND = 500;
+
 int main(int argc, char* argv[])
 {
-    int cycles_per_second = 500;
+    int cycles_per_second = DEFAULT_CYCLES_PER_SECOND;
     int ticks_per_cycle = 1000 / cycles_per_second;
 
     struct Chip8 my_chip;
 
     initialize(&my_chip);
 
-    printf("Enter the ROM file: \n");
-    char path[50];
-    scanf("%s", path);
-
-    if (loadProgram(&my_chip, path) == -1) {
-        return -1;
-    }
+	switch ( argc ) {
+		case 2:
+			if ( loadProgram(&my_chip, argv[1]) == -1 ){
+				fprintf(stderr, "Error loading program \"%s\"\n", argv[1]);
+				return -1;
+			}
+			break;
+		case 1:
+			printf("Enter the ROM file: \n");
+			char path[50];
+			scanf("%s", path);
+			if (loadProgram(&my_chip, path) == -1) {
+				return -1;
+			}
+		default:
+			printf( "Usage: %s [path]\n", argv[0] );
+			return 0;
+	}
 
     printf("Success! Press + and - to adjust emulation speed\nCurrent Speed is 500 instructions per second\n");
 
@@ -36,7 +49,9 @@ int main(int argc, char* argv[])
                     printf("Current Speed is %d instructions per second\n", cycles_per_second);
                     break;
                 case SDLK_MINUS:
-                    cycles_per_second -= 10;
+					if ( cycles_per_second > 10 ) {
+                    	cycles_per_second -= 10;
+					}
                     ticks_per_cycle = 1000 / cycles_per_second;
                     printf("Current Speed is %d instructions per second\n", cycles_per_second);
                     break;
