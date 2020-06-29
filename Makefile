@@ -6,14 +6,15 @@ CC = gcc
 
 COMPILER_FLAGS = -Wall -Wpedantic -std=c11
 
-LINKER_FLAGS = -lSDL2 
+LINKER_FLAGS = -lSDL2
 
 # target
-%.o : %.c
-	$(CC) $< $(COMPILER_FLAGS)
 
 all : $(objFiles) 
 	$(CC) $^ $(LINKER_FLAGS) 
+
+%.o : %.c
+	$(CC) -c $< $(COMPILER_FLAGS)
 
 %DEBUG.o : %.c
 	$(CC) -g $< $(COMPILER_FLAGS) -DDEBUG
