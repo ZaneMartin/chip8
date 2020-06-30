@@ -1,19 +1,27 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <SDL2/SDL.h>
 
 #include "chip8.h"
 
+const int PIXEL_WIDTH = 10;
+const int PIXEL_HEIGHT = 10;
 const int DEFAULT_CYCLES_PER_SECOND = 500;
 
 int main(int argc, char* argv[])
 {
     int cycles_per_second = DEFAULT_CYCLES_PER_SECOND;
+	// Convert from human-readable cycles/sec (~analagous to FPS) into ticks/cycle
+	// Where 1 tick = 1/1000 Sec, whichh is what the clock counts
     int ticks_per_cycle = 1000 / cycles_per_second;
+	
+	SDL_Window* window = NULL;
+	SDL_Renderer* renderer = NULL;
 
     struct Chip8 my_chip;
-
     initialize(&my_chip);
 
+	// Parse arguements
 	switch ( argc ) {
 		case 2:
 			if ( loadProgram(&my_chip, argv[1]) == -1 ){
@@ -28,16 +36,37 @@ int main(int argc, char* argv[])
 			if (loadProgram(&my_chip, path) == -1) {
 				return -1;
 			}
+			break;
 		default:
 			printf( "Usage: %s [path]\n", argv[0] );
 			return 0;
 	}
 
-    printf("Success! Press + and - to adjust emulation speed\nCurrent Speed is 500 instructions per second\n");
+	// Setup graphics
+	if ( SDL_Init( SDL_INIT_VIDEO) < 0 ) {
+		goto SDL_CLEANUP_0;
+	}
+
+	window = SDL_CreateWindow( "CHIP-8", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 
+		SCREEN_WIDTH * PIXEL_WIDTH, SCREEN_HEIGHT * PIXEL_HEIGHT, SDL_WINDOW_SHOWN );
+	if ( !window ) {
+		goto SDL_CLEANUP_1;
+	}
+
+	// NO VSYNC because this uses other timers.
+	renderer = SDL_CreateRenderer( window, -1, SDL_RENDERER_ACCELERATED );
+	if ( !renderer ) { 
+		goto SDL_CLEANUP_2;
+	}
+
+    printf("Success! Press + and - to adjust emulation speed\nCurrent Speed is %d instructions per second\n", cycles_per_second);
 
     Uint32 timer60Hz = SDL_GetTicks();
+	
+	// Loop until SDL_Quit event or program end
     for(SDL_Event event;;) {
         Uint32 cycleStartTime = SDL_GetTicks();
+		// Clear the event queue. Handle quit events as well as change emulation speed requests.
         while(SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
                 goto breakMainLoop;
@@ -86,55 +115,55 @@ int main(int argc, char* argv[])
         // operate next instruction.
         cycle(&my_chip);
 
-        // render
+        // Redraw the screen if anything has changed
         if (my_chip.drawFlag) {
-            SDL_Rect pixel = { 0, 0, 8, 8 };
-            SDL_SetRenderDrawColor(my_chip.renderer, 0x00, 0x00, 0x00, 0xFF);
-            SDL_RenderClear(my_chip.renderer);
-            SDL_SetRenderDrawColor(my_chip.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
-            for (int y = 0 ; y < SCREEN_HEIGHT ; ++y) {
-                for(int x = 0 ; x < SCREEN_WIDTH ; ++x) {
-                    if (my_chip.gfx[y * SCREEN_WIDTH + x]) {
-                        pixel.x = x * 8;
-                        pixel.y = y * 8;
-                        SDL_RenderFillRect(my_chip.renderer, &pixel);
+			// Create a pixel rectangle at (0, 0)
+            SDL_Rect pixel = { 0, 0, PIXEL_WIDTH, PIXEL_HEIGHT };
+			// Clear screen
+            SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
+            SDL_RenderClear(renderer);
+			// Set draw colour to whatever we want pixels to be. I use white
+            SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
+            for ( int y = 0 ; y < SCREEN_HEIGHT ; ++y ) {
+                for ( int x = 0 ; x < SCREEN_WIDTH ; ++x ) {
+                    if (my_chip.gfx[y * SCREEN_WIDTH + x]) { // If there is an active pixel here
+						// Move the pixel rectangle to the correct position on the screen and render it
+                        pixel.x = x * PIXEL_WIDTH;
+                        pixel.y = y * PIXEL_HEIGHT;
+                        SDL_RenderFillRect(renderer, &pixel);
                     }
                 }
             }
-            SDL_RenderPresent(my_chip.renderer);
+
+			// Draw the screen and reset the drawFlag
+            SDL_RenderPresent(renderer);
             my_chip.drawFlag = 0;
         }
-        if (SDL_GetTicks() - timer60Hz > 1000 / 60) {
+		// Check if 1/60th of a second has elapsed
+        while (SDL_GetTicks() - timer60Hz > 1000 / 60) {
+			// If it has, increment the 60Hz timer and decrement the delay and sound timers.
             timer60Hz += 1000 / 60;
             if (my_chip.delay_timer) {
                 my_chip.delay_timer--;
             }
             if (my_chip.sound_timer) {
+				// Beep on non-zero
+				printf("\7");
                 my_chip.sound_timer--;
             }
         }
         if (SDL_GetTicks() - cycleStartTime < ticks_per_cycle) {
             SDL_Delay(ticks_per_cycle - (SDL_GetTicks() - cycleStartTime));
         }
+    } breakMainLoop:
 
-        #ifdef DEBUG
-        printDebug(&my_chip);
-        for(;;) {
-            if (SDL_PollEvent(&event)) {
-                if (event.type == SDL_QUIT) {
-                    goto breakMainLoop;
-                } else if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_RETURN) {
-                    break;
-                }
-            }
-        }
-        #endif // DEBUG
 
-    } breakMainLoop:;
-
-    SDL_DestroyRenderer(my_chip.renderer);
-    SDL_DestroyWindow(my_chip.window);
+    SDL_DestroyRenderer( renderer );
+SDL_CLEANUP_2:
+    SDL_DestroyWindow( window );
+SDL_CLEANUP_1:
     SDL_Quit();
+SDL_CLEANUP_0:
 
     return 0;
 }
