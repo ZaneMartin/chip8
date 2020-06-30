@@ -85,31 +85,6 @@ int loadProgram(struct Chip8* chip, const char* fileName)
 
     fclose(program);
 
-    /// Create an SDL Environment to run in:
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        printf("SDL Initialization failure\n");
-        return -1;
-    }
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
-
-    int width = SCREEN_WIDTH * 8;
-    int height = SCREEN_HEIGHT * 8;
-
-    chip->window = SDL_CreateWindow(fileName, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_SHOWN);
-    if (!chip->window) {
-        printf("SDL Window creation failure\n");
-        SDL_Quit();
-        return -1;
-    }
-
-    chip->renderer = SDL_CreateRenderer(chip->window, -1, SDL_RENDERER_ACCELERATED);
-    if (!chip->renderer) {
-        printf("SDL Renderer creation failure\n");
-        SDL_DestroyWindow(chip->window);
-        SDL_Quit();
-        return -1;
-    }
-
     return 0;
 }
 
